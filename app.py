@@ -1,21 +1,26 @@
 import os
+import shutil
 import requests
 from flask import Flask, request, jsonify, send_file
 from templates import *
-from scraper import scrape_artical
+from scraper import is_local_path, scrape_artical
 from io import BytesIO
-
+import traceback
 app = Flask(__name__)
+
+
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
     try:
         
         artical_url = request.form.get("artical_url",None)
+        app.logger.debug(f'Artical URL: {artical_url}')
 
         output_img_path = request.form.get("output_img_path")
         template_type = request.form.get("template_type", "sample")
         crop_mode = request.form.get("crop_mode", "square")
+        app.logger.debug(f'Template Type: {template_type}, Crop Mode: {crop_mode}')
 
         if template_type in ["quotes_writings_art", "quotes_writings_morning", "quotes_writings_citim", "quotes_writings_thonjeza", "reforma_quotes_writings", "reforma_new_quote", "reforma_feed_swipe"]:
             text = request.form.get("text","")
@@ -58,11 +63,21 @@ def generate_image():
             input_img_path_url = None
             if artical_url:
                 title, img_url = scrape_artical(artical_url)
+
                 if title == None or img_url == None:
                     response = {"error": "can not scrape given URL"}
+                    app.logger.error(f"error: can not scrape given URL")
                     return jsonify(response), 500
-                response = requests.get(img_url)
-                input_img_path_url = BytesIO(response.content)
+                if is_local_path(img_url):
+                    print(f"The path {img_url} is a local file.")
+                    with open(img_url, "rb") as img_file:
+                            img_data = img_file.read()
+                    input_img_path_url = BytesIO(img_data)
+                    os.remove(img_url)
+                else:
+                    print(f"The path {img_url} is not a local file.")
+                    response = requests.get(img_url)
+                    input_img_path_url = BytesIO(response.content)
 
             text = request.form.get("text",title)
             print('text: ', text, title)
@@ -179,10 +194,13 @@ def generate_image():
 
         # Return the filename of the generated image as a response
         response = {"output_file_path": output_img_path}
+        
         return jsonify(response), 200
 
     except Exception as e:
         response = {"error": str(e)}
+        app.logger.error(f"Error: {e}")
+        traceback.print_exc()
         return jsonify(response), 500
 
 if __name__ == "__main__":
