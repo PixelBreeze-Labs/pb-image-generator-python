@@ -6,14 +6,31 @@ from templates import *
 from scraper import is_local_path, scrape_artical
 from io import BytesIO
 import traceback
+import uuid
+from datetime import datetime 
 app = Flask(__name__)
 
+BASE_OUTPUT_DIR = "/var/www/html/api.pixelbreeze.xyz/temp"  # Directory to save generated images
 
+def generate_unique_output_path(user_id, extension="png"):
+    """
+    Generates a unique output file path based on user_id and timestamp.
+    """
+    user_dir = os.path.join(BASE_OUTPUT_DIR, user_id)
+    os.makedirs(user_dir, exist_ok=True)  # Ensure the directory exists
+    filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}.{extension}"
+    return os.path.join(user_dir, filename)
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
     try:
         
+        session_id = request.form.get("session_id", None)
+        if not session_id:
+            response = {"error": "session_id is required"}
+            app.logger.error("session_id not provided.")
+            return jsonify(response), 400
+
         artical_url = request.form.get("artical_url",None)
         app.logger.debug(f'Artical URL: {artical_url}')
 
@@ -21,6 +38,9 @@ def generate_image():
         template_type = request.form.get("template_type", "sample")
         crop_mode = request.form.get("crop_mode", "square")
         app.logger.debug(f'Template Type: {template_type}, Crop Mode: {crop_mode}')
+
+        # Generate a unique output path for this user
+        output_img_path = generate_unique_output_path(session_id)
 
         if template_type in ["quotes_writings_art", "quotes_writings_morning", "quotes_writings_citim", "quotes_writings_thonjeza", "reforma_quotes_writings", "reforma_new_quote", "reforma_feed_swipe"]:
             text = request.form.get("text","")
