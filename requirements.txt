@@ -16,3 +16,7 @@ urllib3==2.1.0
 Werkzeug==3.0.1
 imageio
 pillow-avif-plugin
+redis==4.2.0
+celery==5.2.3
+dynaconf==3.1.7
+marshmallow==3.14.1
