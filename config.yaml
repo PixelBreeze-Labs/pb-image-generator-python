@@ -1,0 +1,12 @@
+# config.yaml
+default:
+  cache:
+    enabled: true
+    ttl: 3600
+  image:
+    max_width: 2048
+    max_height: 2048
+    quality: 85
+  resources:
+    fonts_dir: "static/fonts"
+    media_dir: "static/media"
