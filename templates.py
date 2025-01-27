@@ -1,4 +1,4 @@
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ExifTags
 from text_mods import text_wrap, fontSize_reduce
 from img_mods import crop_image, add_logo, gradient_bottom_to_top, gradient_top_to_bottom, gradient_top_left_to_bottom_right
 from decouple import config
@@ -40,6 +40,27 @@ down_arrow_black_image_path = config("DOWN_ARROW_BLACK_IMG_PATH")
 reforma_web_news_story1_bg_path = config("REFORMA_WEB_NEWS_STORY1_BG_PATH")
 reforma_web_news_story2_bg_path = config("REFORMA_WEB_NEWS_STORY2_BG_PATH")
 category_bg = '#b5e3fd'
+
+def open_image_without_rotation(input_img_path):
+    img = Image.open(input_img_path)
+    try:
+        if hasattr(img, '_getexif') and img._getexif():
+            exif = img._getexif()
+            if exif is not None:
+                orientation_key = next(
+                    (key for key, val in ExifTags.TAGS.items() if val == 'Orientation'), None
+                )
+                if orientation_key and orientation_key in exif:
+                    orientation = exif[orientation_key]
+                    if orientation == 3:
+                        img = img.rotate(180, expand=True)
+                    elif orientation == 6:
+                        img = img.rotate(270, expand=True)
+                    elif orientation == 8:
+                        img = img.rotate(90, expand=True)
+    except Exception as e:
+        print(f"Error handling EXIF orientation: {e}")
+    return img
 
 def highlighted_text(draw, final_wrapped_text, highlight_text, x_min, y_text,  reduced_font, highlight_background_color, highlight_color, color):
 
@@ -118,7 +139,8 @@ def highlighted_text(draw, final_wrapped_text, highlight_text, x_min, y_text,  r
 def template_preprocess(
     text, input_img_path, crop_mode, font_path, font_size_perc, x_mn_prc, x_mx_prc, y_mn_prc, y_mx_prc, mx_height_perc):
      
-        original_image = Image.open(input_img_path)
+        original_image = open_image_without_rotation(input_img_path)
+
         cropped_image = crop_image(original_image, crop_mode)
         gradient_image = cropped_image
 
@@ -289,7 +311,7 @@ def highlight_template(text, input_img_path, output_img_path, crop_mode, arrow, 
 
 def logo_only(input_img_path, output_img_path, crop_mode, logo_position):
      
-    original_image = Image.open(input_img_path)
+    original_image = open_image_without_rotation(input_img_path)
     
     ## crop image for given crop mode
     cropped_image = crop_image(original_image, crop_mode)
