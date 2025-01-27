@@ -1850,6 +1850,142 @@ def reforma_logo_only(pos, input_img_path, output_img_path, crop_mode):
 
     gradient_image.save(output_img_path,'PNG')
 
+
+
+
+def reforma_web_news_story1new(text, sub_text, category, input_img_path, output_img_path, crop_mode):
+    try:
+        # Open the input image, handling AVIF format
+        if input_img_path.lower().endswith('.avif'):
+            gradient_image = Image.open(input_img_path).convert("RGBA")  # Convert to RGBA for consistency
+        else:
+            gradient_image, x_min, x_max, y_min, y_max, reduced_font, final_wrapped_text = template_preprocess(
+                text, input_img_path, crop_mode, font_path, font_size_perc=6, x_mn_prc=10,
+                x_mx_prc=90, y_mn_prc=75, y_mx_prc=85, mx_height_perc=40
+            )
+
+        gradient_image = gradient_top_to_bottom(gradient_image, gradient_magnitude=1.2)
+
+        image1 = gradient_image
+        image2 = Image.open(reforma_web_news_story1_bg_path)
+
+        target_size = (1080, 1920)
+        image1.thumbnail(target_size, Image.Resampling.LANCZOS)
+        image2 = image2.resize((image1.size[0], 1920))
+
+        width, height = image1.size
+        target_height = height * 7 / 5
+        target_width = int(target_height * 9 / 16)
+        left = (width - target_width) // 2
+        top = 0
+        right = left + target_width
+        bottom = top + target_height
+        cropped_im = image1.crop((left, top, right, bottom))
+        image1_cropped = cropped_im.resize(target_size)
+
+        HEIGH_OF_THE_BLACK_AREA = 1920 // 2
+        new_im1 = Image.new(image1.mode, size=(image1.size[0], image1.size[1] + HEIGH_OF_THE_BLACK_AREA))
+        new_im1.putdata(image1_cropped.getdata())
+
+        # Make Image 2 half transparent
+        image2 = image2.convert("RGBA")
+        data = image2.getdata()
+        new_data = [(r, g, b, int(a * 0.5)) for r, g, b, a in data]  # Reduce alpha channel
+        image2.putdata(new_data)
+       
+        paste_x = 0
+        paste_y = new_im1.size[1] - image2.size[1]
+        new_im1.paste(image2, (paste_x, paste_y), image2)
+
+        # Resize image
+        new_im1.thumbnail((1080, 1920), Image.Resampling.LANCZOS)
+       
+        draw = ImageDraw.Draw(new_im1)
+        color = "rgb(0, 0, 0)"
+
+        ## logo
+        logo_width = (new_im1.size[0] * 35) // 100
+        px = ((new_im1.size[0] * 4) // 100)
+        logo_y = (new_im1.size[1] * 5) // 100
+        logo_x = new_im1.size[0] * 50 // 100 - logo_width // 2
+
+        add_logo(
+            new_im1, logo_reforma_white_path, logo_width, logo_width, position=(logo_x, logo_y)
+        )
+
+        ## text
+        text_x = new_im1.size[0] // 2 + 8
+        text_y = ((new_im1.size[1] * 58) // 100) + 150
+        draw.text(
+            (text_x, text_y),
+            text=final_wrapped_text,
+            font=reduced_font,
+            anchor="ma",
+            fill=color,
+            spacing=10,
+            align="center",
+            stroke_width=0
+        )
+
+        new_im1.save(output_img_path, 'PNG')
+       
+        bbox = draw.multiline_textbbox((text_x, text_y), final_wrapped_text, font=reduced_font, anchor="ra", spacing=10, align="right")
+       
+        # cat text
+        font_size = (gradient_image.size[0] * 4) // 100
+        font = ImageFont.truetype(font_path, font_size)
+
+        cate_width = draw.textlength(category, font)
+        left, top, right, bottom = font.getbbox("AAA AAA")
+        cate_height = bottom - top
+        rectangle_coords = (
+            (gradient_image.size[0] * 50) // 100 - cate_width // 2 - draw.textlength(category) // 2 - 12,
+            bbox[1] - reduced_font.size // 2 - 20 - cate_height,
+            (gradient_image.size[0] * 50) // 100 + cate_width // 2 - draw.textlength(category) // 2 + 12,
+            bbox[1] - reduced_font.size // 2,
+        )
+        draw.rectangle(rectangle_coords, fill=category_bg)
+
+        draw.text(
+            ((gradient_image.size[0] * 50) // 100 - draw.textlength(category) // 2, bbox[1] - int(0.5 * reduced_font.size)),
+            text=category,
+            font=font,
+            anchor="md",
+            fill=color,
+            spacing=10,
+            align="center",
+        )
+
+        _, x_min_sub, x_max_sub, y_min_sub, y_max_sub, reduced_font_sub, final_wrapped_text_sub = template_preprocess(
+            sub_text, output_img_path, crop_mode, font_path, font_size_perc=5, x_mn_prc=10,
+            x_mx_prc=90, y_mn_prc=75, y_mx_prc=85, mx_height_perc=20
+        )
+       
+        sub_text_x = new_im1.size[0] - x_min_sub
+        sub_text_y = bbox[3] + reduced_font_sub.size - 10
+
+        ## double reverse arrow
+        bbox_sub = draw.multiline_textbbox((sub_text_x, sub_text_y), final_wrapped_text_sub, font=reduced_font_sub, anchor="ra", spacing=10, align="right")
+        logo_width = (new_im1.size[0] * 8) // 100
+        logo_height = logo_width
+        arrow_x = new_im1.size[0] * 50 // 100 - logo_width // 2
+        arrow_y = bbox_sub[3] + reduced_font_sub.size
+       
+        add_logo(
+            new_im1,
+            down_arrow_black_image_path,
+            logo_width,
+            logo_height,
+            position=(arrow_x, arrow_y),
+        )
+
+        # Save the resulting image
+        new_im1.save(output_img_path, 'PNG')
+
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        # Optionally, return an error response or handle it as needed
+
 def reforma_web_news_story1(text, sub_text, category, input_img_path, output_img_path, crop_mode):
 
     gradient_image, x_min, x_max, y_min, y_max, reduced_font, final_wrapped_text = template_preprocess(text, input_img_path, crop_mode, font_path, font_size_perc = 6, x_mn_prc=10, x_mx_prc=90, y_mn_prc=75, y_mx_prc=85, mx_height_perc=40)
